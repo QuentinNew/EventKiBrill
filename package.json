@@ -1,0 +1,14 @@
+{
+  "name": "event-ki-brill-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord : envoie un message de confirmation sur chaque post d'un forum, et retire du post tout membre réagissant ❌",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}
