@@ -37,6 +37,9 @@ client.on(Events.ThreadCreate, async (thread) => {
     if (thread.parentId !== FORUM_CHANNEL_ID) return;
     if (thread.parent?.type !== ChannelType.GuildForum) return;
 
+    const recentMessages = await thread.messages.fetch({ limit: 5 });
+    if (recentMessages.some((m) => m.author.id === client.user.id)) return;
+
     const embed = new EmbedBuilder()
       .setColor(EMBED_COLOR)
       .setTitle(EMBED_TITLE)
