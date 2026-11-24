@@ -1,0 +1,15 @@
+app = "eventkibrill"
+primary_region = "cdg"
+
+[http_service]
+auto_start_machines = true
+auto_stop_machines = "stop"
+force_https = true
+internal_port = 8_080
+min_machines_running = 1
+processes = [ "app" ]
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory = "256mb"
