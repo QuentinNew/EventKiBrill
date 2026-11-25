@@ -12,7 +12,11 @@ if (!TOKEN || !CLIENT_ID) {
 const commands = [
   {
     name: 'eventkibrill',
-    description: 'Resend the confirmation message (with ❌ reaction) in this forum post',
+    description: 'Resend the confirmation message in this forum post',
+  },
+  {
+    name: 'kickkibrille',
+    description: 'Remove from this post everyone who has not reacted ✅',
   },
 ];
 

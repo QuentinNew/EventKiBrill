@@ -6,6 +6,7 @@ const {
   Events,
   ChannelType,
   EmbedBuilder,
+  MessageType,
 } = require('discord.js');
 
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -14,6 +15,7 @@ const MENTION_ROLE_ID = process.env.MENTION_ROLE_ID;
 const EMBED_TITLE = process.env.EMBED_TITLE;
 const EMBED_COLOR = parseInt(process.env.EMBED_COLOR, 16);
 const CONFIRMATION_MESSAGE = process.env.CONFIRMATION_MESSAGE;
+const CONFIRM_EMOJI = process.env.CONFIRM_EMOJI || '✅';
 
 if (!TOKEN || !FORUM_CHANNEL_ID || !CONFIRMATION_MESSAGE || !EMBED_TITLE || !EMBED_COLOR) {
   console.error('❌ DISCORD_TOKEN, FORUM_CHANNEL_ID, CONFIRMATION_MESSAGE, EMBED_TITLE and EMBED_COLOR must be set in the .env file');
@@ -43,7 +45,11 @@ client.on(Events.ThreadCreate, async (thread) => {
     await sendConfirmationMessage(thread);
 
     const starter = await thread.fetchStarterMessage().catch(() => null);
-    if (starter) await starter.react('❌');
+    if (starter) {
+      await starter.reactions.removeAll().catch(() => null);
+      await starter.react(CONFIRM_EMOJI);
+      await starter.react('❌');
+    }
 
     console.log(`✅ Confirmation message sent in post "${thread.name}"`);
   } catch (error) {
@@ -74,7 +80,8 @@ async function sendConfirmationMessage(thread) {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    if (!interaction.isChatInputCommand() || interaction.commandName !== 'eventkibrill') return;
+    if (!interaction.isChatInputCommand()) return;
+    if (interaction.commandName !== 'eventkibrill' && interaction.commandName !== 'kickkibrille') return;
 
     const channel = interaction.channel;
     if (!channel?.isThread() || channel.parentId !== FORUM_CHANNEL_ID) {
@@ -85,21 +92,47 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    await sendConfirmationMessage(channel);
-    console.log(`✅ Confirmation message resent in post "${channel.name}" via /eventkibrill`);
-    await interaction.reply({ content: '✅ Confirmation message resent.', ephemeral: true });
+    if (interaction.commandName === 'eventkibrill') {
+      await sendConfirmationMessage(channel);
+      console.log(`✅ Confirmation message resent in post "${channel.name}" via /eventkibrill`);
+      await interaction.reply({ content: '✅ Confirmation message resent.', ephemeral: true });
+      return;
+    }
+
+    const confirmed = new Set();
+    const targets = [];
+    const starter = await channel.fetchStarterMessage().catch(() => null);
+    if (starter) targets.push(starter);
+    const recent = await channel.messages.fetch({ limit: 10 });
+    const botMessage = recent.find((m) => m.author.id === client.user.id);
+    if (botMessage) targets.push(botMessage);
+
+    for (const msg of targets) {
+      const reactions = await msg.reactions.fetch().catch(() => null);
+      const confirmReaction = reactions?.get(CONFIRM_EMOJI);
+      if (!confirmReaction) continue;
+      const users = await confirmReaction.users.fetch();
+      users.forEach((u) => {
+        if (!u.bot) confirmed.add(u.id);
+      });
+    }
+
+    const members = await channel.members.fetch();
+    let removed = 0;
+    for (const member of members.values()) {
+      if (confirmed.has(member.id)) continue;
+      await channel.members.remove(member.id).then(() => removed++).catch(() => null);
+    }
+
+    console.log(`🚪 ${removed} member(s) without ${CONFIRM_EMOJI} removed from post "${channel.name}"`);
+    await interaction.reply({
+      content: `🚪 Removed ${removed} member(s) who had not reacted ${CONFIRM_EMOJI}.`,
+      ephemeral: true,
+    });
   } catch (error) {
-    console.error('Error in /eventkibrill command:', error);
+    console.error('Error in slash command:', error);
   }
 });
-
-function isConfirmationMessage(message) {
-  return (
-    message.author?.id === client.user.id &&
-    message.channel.isThread() &&
-    message.channel.parentId === FORUM_CHANNEL_ID
-  );
-}
 
 // The forum post itself = the thread's starter message (its id equals the thread id)
 function isForumPostMessage(message) {
@@ -159,6 +192,17 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
     console.log(`✅ ${user.tag} re-added to post "${message.channel.name}"`);
   } catch (error) {
     console.error('Error while re-adding the member to the post:', error);
+  }
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  try {
+    if (message.author?.id !== client.user.id) return;
+    if (message.type === MessageType.Default) return;
+    if (!message.channel.isThread() || message.channel.parentId !== FORUM_CHANNEL_ID) return;
+    await message.delete().catch(() => null);
+  } catch (error) {
+    console.error('Error while deleting the system message:', error);
   }
 });
 
