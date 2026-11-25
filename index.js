@@ -41,6 +41,10 @@ client.on(Events.ThreadCreate, async (thread) => {
     if (recentMessages.some((m) => m.author.id === client.user.id)) return;
 
     await sendConfirmationMessage(thread);
+
+    const starter = await thread.fetchStarterMessage().catch(() => null);
+    if (starter) await starter.react('❌');
+
     console.log(`✅ Confirmation message sent in post "${thread.name}"`);
   } catch (error) {
     console.error('Error while sending the confirmation message:', error);
@@ -65,7 +69,6 @@ async function sendConfirmationMessage(thread) {
     embeds: [embed],
     allowedMentions,
   });
-  await message.react('❌');
   return message;
 }
 
@@ -98,6 +101,26 @@ function isConfirmationMessage(message) {
   );
 }
 
+// The forum post itself = the thread's starter message (its id equals the thread id)
+function isForumPostMessage(message) {
+  return (
+    message.channel.isThread() &&
+    message.channel.parentId === FORUM_CHANNEL_ID &&
+    message.id === message.channel.id
+  );
+}
+
+// ❌ kicks when reacted on the forum post itself (starter message, id === thread id)
+// or on the bot's confirmation message (legacy behavior)
+function isKickableMessage(message) {
+  return (
+    isForumPostMessage(message) ||
+    (message.author?.id === client.user.id &&
+      message.channel.isThread() &&
+      message.channel.parentId === FORUM_CHANNEL_ID)
+  );
+}
+
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
   try {
     if (user.bot) return;
@@ -107,7 +130,7 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
     if (user.partial) user = await user.fetch();
 
     const message = reaction.message;
-    if (!isConfirmationMessage(message)) return;
+    if (!isKickableMessage(message)) return;
 
     const memberInThread = await message.channel.members
       .fetch(user.id)
@@ -130,7 +153,7 @@ client.on(Events.MessageReactionRemove, async (reaction, user) => {
     if (user.partial) user = await user.fetch();
 
     const message = reaction.message;
-    if (!isConfirmationMessage(message)) return;
+    if (!isKickableMessage(message)) return;
 
     await message.channel.members.add(user.id);
     console.log(`✅ ${user.tag} re-added to post "${message.channel.name}"`);

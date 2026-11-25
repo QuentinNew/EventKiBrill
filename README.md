@@ -3,7 +3,7 @@
 Bot that watches a Discord **forum channel**:
 
 1. When a **post** is created, the bot automatically sends a message mentioning everyone or `MENTION_ROLE_ID`.
-2. If a member reacts **❌** to that message, they are **removed from the post** (they stop receiving its notifications).
+2. If a member reacts **❌** to that post, they are **removed from the post** (they stop receiving its notifications).
 3. If a member **removes** their ❌ reaction, they are **re-added to the post** (notifications resume).
 
 ## Requirements
