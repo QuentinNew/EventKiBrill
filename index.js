@@ -81,7 +81,7 @@ async function sendConfirmationMessage(thread) {
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (!interaction.isChatInputCommand()) return;
-    if (interaction.commandName !== 'eventkibrill' && interaction.commandName !== 'kickkibrille') return;
+    if (interaction.commandName !== 'eventkibrill' && interaction.commandName !== 'kickkibrill') return;
 
     const channel = interaction.channel;
     if (!channel?.isThread() || channel.parentId !== FORUM_CHANNEL_ID) {
@@ -103,20 +103,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const targets = [];
     const starter = await channel.fetchStarterMessage().catch(() => null);
     if (starter) targets.push(starter);
-    const recent = await channel.messages.fetch({ limit: 10 });
-    const botMessage = recent.find((m) => m.author.id === client.user.id);
-    if (botMessage) targets.push(botMessage);
 
     for (const msg of targets) {
-      const reactions = await msg.reactions.fetch().catch(() => null);
-      const confirmReaction = reactions?.get(CONFIRM_EMOJI);
-      if (!confirmReaction) continue;
-      const users = await confirmReaction.users.fetch();
-      users.forEach((u) => {
-        if (!u.bot) confirmed.add(u.id);
-      });
+      const reactions = await fetchReactions(msg);
+      const confirmReactions = reactions?.filter(
+        (r) =>
+          r.emoji.name === '✅' ||
+          r.emoji.name === CONFIRM_EMOJI ||
+          r.emoji.id === CONFIRM_EMOJI
+      );
+      if (!confirmReactions?.size) continue;
+      for (const confirmReaction of confirmReactions.values()) {
+        const users = await confirmReaction.users.fetch();
+        users.forEach((u) => {
+          if (!u.bot) confirmed.add(u.id);
+        });
+      }
     }
-
     const members = await channel.members.fetch();
     let removed = 0;
     for (const member of members.values()) {
@@ -124,7 +127,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await channel.members.remove(member.id).then(() => removed++).catch(() => null);
     }
 
-    console.log(`🚪 ${removed} member(s) without ${CONFIRM_EMOJI} removed from post "${channel.name}"`);
+    console.log(`🚪 ${removed} member(s) without ${CONFIRM_EMOJI} removed from post "${channel.name}" via /kickkibrill`);
     await interaction.reply({
       content: `🚪 Removed ${removed} member(s) who had not reacted ${CONFIRM_EMOJI}.`,
       ephemeral: true,
@@ -145,6 +148,17 @@ function isForumPostMessage(message) {
 
 // ❌ kicks when reacted on the forum post itself (starter message, id === thread id)
 // or on the bot's confirmation message (legacy behavior)
+async function fetchReactions(msg) {
+  try {
+    const full = typeof msg.fetch === 'function' ? await msg.fetch().catch(() => null) : null;
+    const m = full ?? msg;
+    return m.reactions?.cache ?? null;
+  } catch (error) {
+    console.error('[fetchReactions] error:', error.message);
+    return null;
+  }
+}
+
 function isKickableMessage(message) {
   return (
     isForumPostMessage(message) ||

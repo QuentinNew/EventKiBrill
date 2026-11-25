@@ -15,8 +15,8 @@ const commands = [
     description: 'Resend the confirmation message in this forum post',
   },
   {
-    name: 'kickkibrille',
-    description: 'Remove from this post everyone who has not reacted ✅',
+    name: 'kickkibrill',
+    description: 'Remove from this post everyone who has not reacted ✅ or the confirm emoji',
   },
 ];
 
