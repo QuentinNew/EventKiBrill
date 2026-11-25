@@ -4,7 +4,8 @@
   "description": "Bot Discord : envoie un message de confirmation sur chaque post d'un forum, et retire du post tout membre réagissant ❌",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "deploy-commands": "node deploy-commands.js"
   },
   "license": "MIT",
   "dependencies": {

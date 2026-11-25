@@ -40,27 +40,53 @@ client.on(Events.ThreadCreate, async (thread) => {
     const recentMessages = await thread.messages.fetch({ limit: 5 });
     if (recentMessages.some((m) => m.author.id === client.user.id)) return;
 
-    const embed = new EmbedBuilder()
-      .setColor(EMBED_COLOR)
-      .setTitle(EMBED_TITLE)
-      .setDescription(CONFIRMATION_MESSAGE)
-      .setFooter({ text: 'Event Ki Brill' })
-      .setTimestamp();
-
-    const content = MENTION_ROLE_ID ? `<@&${MENTION_ROLE_ID}>` : '@everyone';
-    const allowedMentions = MENTION_ROLE_ID
-      ? { roles: [MENTION_ROLE_ID] }
-      : { parse: ['everyone'] };
-
-    const message = await thread.send({
-      content,
-      embeds: [embed],
-      allowedMentions,
-    });
-    await message.react('❌');
+    await sendConfirmationMessage(thread);
     console.log(`✅ Confirmation message sent in post "${thread.name}"`);
   } catch (error) {
     console.error('Error while sending the confirmation message:', error);
+  }
+});
+
+async function sendConfirmationMessage(thread) {
+  const embed = new EmbedBuilder()
+    .setColor(EMBED_COLOR)
+    .setTitle(EMBED_TITLE)
+    .setDescription(CONFIRMATION_MESSAGE)
+    .setFooter({ text: 'Event Ki Brill' })
+    .setTimestamp();
+
+  const content = MENTION_ROLE_ID ? `<@&${MENTION_ROLE_ID}>` : '@everyone';
+  const allowedMentions = MENTION_ROLE_ID
+    ? { roles: [MENTION_ROLE_ID] }
+    : { parse: ['everyone'] };
+
+  const message = await thread.send({
+    content,
+    embeds: [embed],
+    allowedMentions,
+  });
+  await message.react('❌');
+  return message;
+}
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (!interaction.isChatInputCommand() || interaction.commandName !== 'eventkibrill') return;
+
+    const channel = interaction.channel;
+    if (!channel?.isThread() || channel.parentId !== FORUM_CHANNEL_ID) {
+      await interaction.reply({
+        content: 'This command only works inside a post of the configured forum.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await sendConfirmationMessage(channel);
+    console.log(`✅ Confirmation message resent in post "${channel.name}" via /eventkibrill`);
+    await interaction.reply({ content: '✅ Confirmation message resent.', ephemeral: true });
+  } catch (error) {
+    console.error('Error in /eventkibrill command:', error);
   }
 });
 
